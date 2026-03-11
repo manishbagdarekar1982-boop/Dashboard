@@ -1,0 +1,40 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend-next/node_modules/
+frontend-next/.next/
+
+# Environment (secrets)
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data
+backend/data/
+
+# Logs
+*.log
+
+# Newspaper PDFs (too large for git)
+News_paper/
+
+# Claude internal
+.claude/
