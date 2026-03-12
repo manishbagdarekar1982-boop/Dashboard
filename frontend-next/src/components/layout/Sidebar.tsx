@@ -22,12 +22,15 @@ import {
   Activity,
   TrendingUp,
   Globe,
+  Percent,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const NAV_ITEMS = [
   { to: '/',            icon: LayoutDashboard, label: 'Dashboard'   },
   { to: '/market-overview', icon: LayoutGrid,   label: 'Market Overview' },
+  { to: '/returns',    icon: Percent,           label: 'Returns'          },
   { to: '/earnings',   icon: TrendingUp,       label: 'Earnings Analysis' },
   { to: '/stock',       icon: LineChart,        label: 'Stock Detail' },
   { to: '/screener',    icon: ScanSearch,       label: 'Screener'     },
@@ -39,6 +42,7 @@ const NAV_ITEMS = [
   { to: '/market-map',  icon: Map,              label: 'Market Map'   },
   { to: '/mutual-funds',        icon: Landmark, label: 'Mutual Funds'  },
   { to: '/capital-composition', icon: PieChart, label: 'Capital Composition' },
+  { to: '/star-investors', icon: Users, label: 'Star Investors' },
   { to: '/market-breadth', icon: Activity, label: 'Market Breadth' },
   { to: '/universe',    icon: Globe,            label: 'Universe'     },
   { to: '/heatmap',     icon: BarChart2,        label: 'Heatmap'      },

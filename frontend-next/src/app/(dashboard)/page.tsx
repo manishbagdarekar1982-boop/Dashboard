@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import {
   TrendingUp, TrendingDown, BarChart2,
   CandlestickChart as CandleIcon, LineChart, AreaChart, Table2,
   Maximize2, X,
 } from 'lucide-react';
 import { CandlestickChart } from '@/components/charts/CandlestickChart';
-import { FundamentalSubChartPanel } from '@/components/charts/FundamentalSubChartPanel';
+import type { FundamentalPaneConfig } from '@/components/charts/CandlestickChart';
 import { OHLCTable } from '@/components/tables/OHLCTable';
 import { IntervalSelector } from '@/components/forms/IntervalSelector';
 import { FundamentalsPickerButton, FundamentalsPickerModal } from '@/components/forms/FundamentalsPicker';
 import { StockSearch } from '@/components/forms/StockSearch';
 import { useOHLC } from '@/hooks/useOHLC';
+import { useFundamentalCatalog, useFundamentalTimeseries } from '@/hooks/useFundamentals';
 import { useStockStore } from '@/store/stockStore';
 import { useFundamentalStore } from '@/store/fundamentalStore';
 import type { ChartType } from '@/types/ohlc';
@@ -76,8 +77,36 @@ export default function DashboardPage() {
   const { selectedSymbol, chartType, setChartType } = useStockStore();
   const { data, isLoading, error } = useOHLC();
   const selectedMetrics = useFundamentalStore((s) => s.selectedMetrics);
+  const removeMetric = useFundamentalStore((s) => s.removeMetric);
   const [viewTab, setViewTab]       = useState<ViewTab>('chart');
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fundamental data
+  const { data: catalog } = useFundamentalCatalog();
+  const { data: tsData } = useFundamentalTimeseries();
+
+  // Build FundamentalPaneConfig[] for the chart
+  const fundamentalPanes: FundamentalPaneConfig[] = useMemo(() => {
+    if (!catalog || !tsData || selectedMetrics.length === 0) return [];
+
+    const catalogMap = new Map(catalog.metrics.map(m => [m.key, m]));
+
+    return selectedMetrics
+      .map((key, idx) => {
+        const meta = catalogMap.get(key);
+        if (!meta) return null;
+        const points = tsData.metrics?.[key] ?? [];
+        return {
+          key,
+          label: meta.label,
+          unit: meta.unit,
+          chartType: meta.chart_type,
+          data: points,
+          colorIndex: idx,
+        } satisfies FundamentalPaneConfig;
+      })
+      .filter((x): x is FundamentalPaneConfig => x !== null);
+  }, [catalog, tsData, selectedMetrics]);
 
   const ohlc      = data?.ohlc ?? [];
   const last      = ohlc[ohlc.length - 1];
@@ -133,6 +162,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <IntervalSelector />
+              <FundamentalsPickerButton />
               <ChartTypeSelector chartType={chartType} setChartType={setChartType} />
               <button
                 onClick={() => setIsFullscreen(false)}
@@ -149,6 +179,8 @@ export default function DashboardPage() {
               isLoading={isLoading}
               symbol={selectedSymbol}
               chartType={chartType}
+              fundamentalPanes={fundamentalPanes}
+              onRemoveFundamental={removeMetric}
             />
           </div>
         </div>
@@ -230,32 +262,22 @@ export default function DashboardPage() {
         {/* Chart or Table — fills remaining space */}
         <div className="min-h-0 flex-1">
           {viewTab === 'chart' ? (
-            <div className="flex h-full flex-col">
-              {/* Main candlestick chart */}
-              <div
-                className="relative min-h-[300px]"
-                style={{ flex: selectedMetrics.length > 0 ? '0 0 55%' : '1 1 auto' }}
+            <div className="relative h-full">
+              <CandlestickChart
+                data={ohlc}
+                isLoading={isLoading}
+                symbol={selectedSymbol}
+                chartType={chartType}
+                fundamentalPanes={fundamentalPanes}
+                onRemoveFundamental={removeMetric}
+              />
+              <button
+                onClick={() => setIsFullscreen(true)}
+                title="Fullscreen (F)"
+                className="absolute right-3 top-3 z-10 rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700 dark:bg-slate-800/90 dark:text-gray-500 dark:hover:bg-slate-700 dark:hover:text-white"
               >
-                <CandlestickChart
-                  data={ohlc}
-                  isLoading={isLoading}
-                  symbol={selectedSymbol}
-                  chartType={chartType}
-                />
-                <button
-                  onClick={() => setIsFullscreen(true)}
-                  title="Fullscreen (F)"
-                  className="absolute right-3 top-3 z-10 rounded-lg bg-white/90 p-1.5 text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700 dark:bg-slate-800/90 dark:text-gray-500 dark:hover:bg-slate-700 dark:hover:text-white"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
-              </div>
-              {/* Fundamental sub-charts */}
-              {selectedMetrics.length > 0 && (
-                <div className="flex-1 overflow-y-auto border-t border-gray-200 dark:border-slate-700">
-                  <FundamentalSubChartPanel />
-                </div>
-              )}
+                <Maximize2 className="h-4 w-4" />
+              </button>
             </div>
           ) : (
             <div className="h-full overflow-auto">

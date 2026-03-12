@@ -139,3 +139,39 @@ export function useReturns() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   });
 }
+
+// ── Yearly Returns ──
+
+export interface YearlyReturnEntry {
+  symbol: string;
+  sector: string | null;
+  industry: string | null;
+  mcap_type: string | null;
+  [year: string]: number | string | null;
+}
+
+export interface YearlyReturnsResponse {
+  columns: string[];
+  data: YearlyReturnEntry[];
+}
+
+export async function fetchYearlyReturns(): Promise<YearlyReturnsResponse> {
+  const res = await client.get<ApiResponse<YearlyReturnsResponse>>(
+    '/api/v1/market-overview/yearly-returns',
+  );
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.errors ?? 'Failed to fetch yearly returns');
+  }
+  return res.data.data;
+}
+
+export function useYearlyReturns() {
+  return useQuery({
+    queryKey: ['market-overview-yearly-returns'],
+    queryFn: fetchYearlyReturns,
+    staleTime: STALE_TIME,
+    gcTime: STALE_TIME,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+  });
+}

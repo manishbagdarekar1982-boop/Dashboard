@@ -26,6 +26,17 @@ logger = logging.getLogger(__name__)
 
 # --- Static routes MUST come before /{symbol} ---
 
+@router.get("/shareholder-names")
+async def get_shareholder_names():
+    """Return all unique shareholder names from the >1% shareholding collection."""
+    try:
+        names = await asyncio.to_thread(shareholding_service.get_all_shareholder_names)
+        return StandardResponse(success=True, data=names)
+    except Exception as e:
+        logger.exception("shareholding/shareholder-names failed")
+        return StandardResponse(success=False, errors=str(e) or type(e).__name__)
+
+
 @router.get("/sectors", response_model=StandardResponse[SectorListResponse])
 async def get_sectors():
     """List all distinct sectors for the dropdown."""

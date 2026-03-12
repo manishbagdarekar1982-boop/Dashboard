@@ -505,3 +505,31 @@ def get_all_sectors_summary() -> AllSectorsSummaryResponse:
     _all_sectors_summary_ts = now
     logger.info("All-sectors summary cached: %d sectors", len(rows))
     return response
+
+
+# ── Distinct shareholder names (>1% stake) ──
+
+_shareholder_names_cache: list[str] | None = None
+
+
+def get_all_shareholder_names() -> list[str]:
+    """Return all unique shareholder names from the >1% shareholding collection."""
+    global _shareholder_names_cache
+    if _shareholder_names_cache is not None:
+        return _shareholder_names_cache
+
+    db = get_mongo_db()
+    coll = db["indira_cmots_shareholding_more_than_one_percent"]
+
+    # The name field can be stored as "Name", "Hname", or "hname"
+    names: set[str] = set()
+    for field in ("Name", "Hname", "hname"):
+        vals = coll.distinct(field)
+        for v in vals:
+            if v and isinstance(v, str) and v.strip():
+                names.add(v.strip())
+
+    result = sorted(names)
+    _shareholder_names_cache = result
+    logger.info("Loaded %d distinct shareholder names (>1%%)", len(result))
+    return result

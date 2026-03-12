@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from backend.api.v1 import ohlc, companies, shareholding, market_overview, mutual_fund, market_breadth, earnings, universe, news, fundamentals
+from backend.api.v1 import ohlc, companies, shareholding, market_overview, mutual_fund, market_breadth, earnings, universe, news, fundamentals, star_investors
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(ohlc.router, prefix="/ohlc", tags=["OHLC"])
@@ -13,3 +13,4 @@ router.include_router(earnings.router, prefix="/earnings", tags=["Earnings Analy
 router.include_router(universe.router, prefix="/universe", tags=["Universe"])
 router.include_router(news.router, prefix="/news", tags=["News"])
 router.include_router(fundamentals.router, prefix="/fundamentals", tags=["Fundamentals"])
+router.include_router(star_investors.router, prefix="/star-investors", tags=["Star Investors"])

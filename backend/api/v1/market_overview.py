@@ -22,6 +22,7 @@ from backend.services import (
     market_overview_split_trends_service,
     market_overview_scanner_service,
     returns_service,
+    period_returns_service,
 )
 
 router = APIRouter()
@@ -117,4 +118,17 @@ async def get_multi_period_returns(
         return StandardResponse(success=True, data=data)
     except Exception as e:
         logger.exception("market-overview/returns failed")
+        return StandardResponse(success=False, errors=str(e) or type(e).__name__)
+
+
+@router.get("/yearly-returns")
+async def get_yearly_returns(
+    session: AsyncSession = Depends(get_session),
+):
+    """Return calendar-year % returns for all symbols (2000–present)."""
+    try:
+        data = await period_returns_service.get_yearly_returns(session)
+        return StandardResponse(success=True, data=data)
+    except Exception as e:
+        logger.exception("market-overview/yearly-returns failed")
         return StandardResponse(success=False, errors=str(e) or type(e).__name__)

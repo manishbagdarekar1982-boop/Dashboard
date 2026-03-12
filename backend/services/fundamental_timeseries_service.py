@@ -45,8 +45,12 @@ _YEAR_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 # For rid: "rid" = integer RID number
 # For flat: "field" = MongoDB field name, "filter_key"/"filter_value" = query filter
 
-def _pl(key: str, label: str, rid: int, unit: str = "cr", chart_type: str = "bar") -> dict:
-    return {"key": key, "label": label, "tab": "income_statement", "collection": "indira_cmots_profit_loss", "type": "rid", "rid": rid, "unit": unit, "chart_type": chart_type}
+def _pl(key: str, label: str, rid: int, unit: str = "cr", chart_type: str = "bar", qr_rid: int | None = None) -> dict:
+    """Income statement metric.  qr_rid = RID in indira_cmots_quarterly_results (None → skip quarterly)."""
+    return {"key": key, "label": label, "tab": "income_statement",
+            "collection": "indira_cmots_profit_loss", "type": "rid", "rid": rid,
+            "quarterly_collection": "indira_cmots_quarterly_results", "quarterly_rid": qr_rid,
+            "unit": unit, "chart_type": chart_type}
 
 def _bs(key: str, label: str, rid: int, unit: str = "cr", chart_type: str = "bar") -> dict:
     return {"key": key, "label": label, "tab": "balance_sheet", "collection": "indira_cmots_balance_sheet", "type": "rid", "rid": rid, "unit": unit, "chart_type": chart_type}
@@ -74,38 +78,40 @@ _METRIC_CATALOG: list[dict[str, Any]] = [
     # ═══════════════════════════════════════════════════════════════
     # INCOME STATEMENT  (indira_cmots_profit_loss — RID-based)
     # ═══════════════════════════════════════════════════════════════
-    _pl("revenue_ops",        "Revenue From Operations",                 1),
+    # Annual RID → Quarterly RID (indira_cmots_quarterly_results)
+    # Quarterly uses different RID numbering, mapped via qr_rid parameter
+    _pl("revenue_ops",        "Revenue From Operations",                 1,  qr_rid=1),   # Gross Sales
     _pl("sale_of_products",   "Sale of Products",                        2),
     _pl("sale_of_services",   "Sale of Services",                        3),
-    _pl("other_operating_rev","Other Operating Revenue",                  6),
-    _pl("revenue",            "Revenue From Operations - Net",           8),
-    _pl("other_income",       "Other Income",                            9),
-    _pl("total_revenue",      "Total Revenue",                           10),
+    _pl("other_operating_rev","Other Operating Revenue",                  6,  qr_rid=4),
+    _pl("revenue",            "Revenue From Operations - Net",           8,  qr_rid=3),   # Net Sales
+    _pl("other_income",       "Other Income",                            9,  qr_rid=15),
+    _pl("total_revenue",      "Total Revenue",                           10, qr_rid=5),   # Total Income
     _pl("changes_inventory",  "Changes in Inventories",                  11),
-    _pl("cost_materials",     "Cost of Material Consumed",               12),
+    _pl("cost_materials",     "Cost of Material Consumed",               12, qr_rid=7),   # Cost of Sales
     _pl("purchases_stock",    "Purchases of Stock-in-Trade",             14),
-    _pl("employee_benefits",  "Employee Benefits",                       15),
+    _pl("employee_benefits",  "Employee Benefits",                       15, qr_rid=8),
     _pl("total_other_exp",    "Total Other Expenses",                    16),
     _pl("mfg_operating_exp",  "Manufacturing / Operating Expenses",      17),
-    _pl("admin_selling_exp",  "Administrative and Selling Expenses",     18),
-    _pl("other_expenses",     "Other Expenses",                          19),
-    _pl("finance_costs",      "Finance Costs",                           20),
-    _pl("depreciation",       "Depreciation and Amortization",           21),
-    _pl("total_expenses",     "Total Expenses",                          22),
-    _pl("pbit",               "Profit Before Exceptional Items & Tax",   23),
-    _pl("exceptional_items",  "Exceptional Items Before Tax",            24),
-    _pl("pbt",                "Profit Before Tax",                       28),
-    _pl("taxation",           "Taxation",                                29),
+    _pl("admin_selling_exp",  "Administrative and Selling Expenses",     18, qr_rid=11),
+    _pl("other_expenses",     "Other Expenses",                          19, qr_rid=12),
+    _pl("finance_costs",      "Finance Costs",                           20, qr_rid=17),
+    _pl("depreciation",       "Depreciation and Amortization",           21, qr_rid=9),
+    _pl("total_expenses",     "Total Expenses",                          22, qr_rid=6),
+    _pl("pbit",               "Profit Before Exceptional Items & Tax",   23, qr_rid=16),
+    _pl("exceptional_items",  "Exceptional Items Before Tax",            24, qr_rid=19),
+    _pl("pbt",                "Profit Before Tax",                       28, qr_rid=21),
+    _pl("taxation",           "Taxation",                                29, qr_rid=22),
     _pl("current_tax",        "Current Tax",                             30),
     _pl("deferred_tax",       "Deferred Tax",                            32),
-    _pl("pat",                "Profit After Tax",                        35),
+    _pl("pat",                "Profit After Tax",                        35, qr_rid=28),
     _pl("profit_to_shareholders","Profit Attributable to Shareholders",  40),
     _pl("profit_to_equity",   "Profit Attributable to Equity Holders",   43),
-    _pl("eps_basic",          "EPS - Basic",                             44, "ratio", "line"),
-    _pl("eps_diluted",        "EPS - Diluted",                           45, "ratio", "line"),
+    _pl("eps_basic",          "EPS - Basic",                             44, "ratio", "line", qr_rid=36),
+    _pl("eps_diluted",        "EPS - Diluted",                           45, "ratio", "line", qr_rid=37),
     _pl("ebitda",             "EBITDA",                                  46),
-    _pl("operating_profit",   "Operating Profit after Depreciation",     47),
-    _pl("dps",                "Dividend Per Share",                      48, "ratio", "line"),
+    _pl("operating_profit",   "Operating Profit after Depreciation",     47, qr_rid=14),
+    _pl("dps",                "Dividend Per Share",                      48, "ratio", "line", qr_rid=39),
 
     # ═══════════════════════════════════════════════════════════════
     # BALANCE SHEET  (indira_cmots_balance_sheet — RID-based)
@@ -397,8 +403,14 @@ def get_timeseries(
             continue
 
         if meta["type"] == "rid":
+            # Use quarterly collection if available and period is quarterly
+            use_collection = meta["collection"]
+            use_rid = meta["rid"]
+            if period == "quarterly" and meta.get("quarterly_rid") is not None:
+                use_collection = meta.get("quarterly_collection", meta["collection"])
+                use_rid = meta["quarterly_rid"]
             raw = _extract_rid_series(
-                db, co_code, meta["collection"], meta["rid"], period
+                db, co_code, use_collection, use_rid, period
             )
         else:
             raw = _extract_flat_series(
